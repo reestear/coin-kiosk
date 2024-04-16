@@ -141,7 +141,7 @@ int find_coin(int target_ind){
     return -1;
   }
 
-  int start_time = millis();
+  unsigned long start_time = millis();
   while(millis() < start_time + 300) {
     if(!digitalRead(ir_pins[target_ind])) {
       int ret = find_coin(target_ind + 1);
