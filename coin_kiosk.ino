@@ -1,5 +1,5 @@
 #include <LiquidCrystal_I2C.h>
-#include <Servo.h> 
+#include <Servo.h>
 
 // Coins
 // 20 -> 10 -> 50 -> 100
@@ -11,12 +11,10 @@ int confirm_button_state, last_confirm_button_state = 0;
 
 const int noteA = 440, noteB = 494, noteC = 523;
 const int melody[] = {
-  noteA, noteB, noteC, noteA, noteB, noteC, noteB, noteA, noteB, noteC, noteB, noteA, noteC, noteC, noteA
-};
+    noteA, noteB, noteC, noteA, noteB, noteC, noteB, noteA, noteB, noteC, noteB, noteA, noteC, noteC, noteA};
 
 const float noteDurations[] = {
-  4, 4, 4, 4, 4, 1.5, 4, 4, 4, 1.75, 4, 4, 4, 2, 2
-};
+    4, 4, 4, 4, 4, 1.5, 4, 4, 4, 1.75, 4, 4, 4, 2, 2};
 
 // Defining Pins
 const int ir_pins[4] = {8, 9, 10, 11};
@@ -51,73 +49,83 @@ char loading_message[] = "Please Wait   ";
   Please wait......
 
 */
-void print_screen(){
-  switch (status) {
-    case 0:
-      lcd.setCursor(0, 0);
-      lcd.print("C: ");
-      for(int i = 0; i < 4; i++) {
-        lcd.print(coins[i]);
-        if(i != 3) lcd.print("|");
-      }
-      
-      lcd.setCursor(0, 1);
-      lcd.print("A: ");
-      for(int i = 0; i < 4; i++) {
-        lcd.print(bank_amount[i]);
-        if(bank_amount[i] < 10) lcd.print(" ");
-        if(i != 3) lcd.print("|");
-      }
+void print_screen()
+{
+  switch (status)
+  {
+  case 0:
+    lcd.setCursor(0, 0);
+    lcd.print("C: ");
+    for (int i = 0; i < 4; i++)
+    {
+      lcd.print(coins[i]);
+      if (i != 3)
+        lcd.print("|");
+    }
 
-      return;
-    
-    case 1:
-      lcd.setCursor(0, 0);
-      lcd.print("Amount: ");
-      lcd.print(filling_sum);
-      lcd.print("        ");
+    lcd.setCursor(0, 1);
+    lcd.print("A: ");
+    for (int i = 0; i < 4; i++)
+    {
+      lcd.print(bank_amount[i]);
+      if (bank_amount[i] < 10)
+        lcd.print(" ");
+      if (i != 3)
+        lcd.print("|");
+    }
 
-      lcd.setCursor(0, 1);
-      lcd.print("OK to continue");
+    return;
 
-      return;
-    
-    case 2:
-      lcd.setCursor(0, 0);
-      lcd.print("Mode: ");
-      lcd.print(mode == 0 ? "Smaller      " : mode == 1 ? "Bigger     " : "Filling     ");
+  case 1:
+    lcd.setCursor(0, 0);
+    lcd.print("Amount: ");
+    lcd.print(filling_sum);
+    lcd.print("        ");
 
-      lcd.setCursor(0, 1);
-      lcd.print("OK to continue");
+    lcd.setCursor(0, 1);
+    lcd.print("OK to continue");
 
-      return;
-    
-    case 3:
-      lcd.setCursor(0, 0);
-      lcd.print("Giving coins   ");
+    return;
 
-      lcd.setCursor(0, 1);
-      lcd.print(loading_message);
+  case 2:
+    lcd.setCursor(0, 0);
+    lcd.print("Mode: ");
+    lcd.print(mode == 0 ? "Smaller      " : mode == 1 ? "Bigger     "
+                                                      : "Filling     ");
 
-      return;
-    
-    case 4:
-      lcd.setCursor(0, 0);
-      lcd.print("Now you are rich!   ");
+    lcd.setCursor(0, 1);
+    lcd.print("OK to continue");
 
-      lcd.setCursor(0, 1);
-      lcd.print("(Actually Not)");
+    return;
 
-      return;
+  case 3:
+    lcd.setCursor(0, 0);
+    lcd.print("Giving coins   ");
 
-    default:
-      return;
+    lcd.setCursor(0, 1);
+    lcd.print(loading_message);
+
+    return;
+
+  case 4:
+    lcd.setCursor(0, 0);
+    lcd.print("Now you are rich!   ");
+
+    lcd.setCursor(0, 1);
+    lcd.print("(Actually Not)");
+
+    return;
+
+  default:
+    return;
   }
 }
 
-void play_audio(int full){
+void play_audio(int full)
+{
   int till = (full == 1) ? 15 : 6;
-  for (int i = 0; i < till; i++) {
+  for (int i = 0; i < till; i++)
+  {
     int duration = 1000 / noteDurations[i];
     tone(buzzer_pin, melody[i], duration);
 
@@ -128,71 +136,96 @@ void play_audio(int full){
   noTone(buzzer_pin);
 }
 
-int find_coin(int target_ind){
-  if(target_ind == 4) return -1;
+int find_coin(int target_ind)
+{
+  if (target_ind == 4)
+    return -1;
 
-  if(target_ind == 0) {
-    if(!digitalRead(ir_pins[target_ind])) {
+  if (target_ind == 0)
+  {
+    if (!digitalRead(ir_pins[target_ind]))
+    {
       int ret = find_coin(target_ind + 1);
-      if(ret == -1) return target_ind;
-      else return ret;
+      if (ret == -1)
+        return target_ind;
+      else
+        return ret;
     }
 
     return -1;
   }
 
   unsigned long start_time = millis();
-  while(millis() < start_time + 300) {
-    if(!digitalRead(ir_pins[target_ind])) {
+  while (millis() < start_time + 300)
+  {
+    if (!digitalRead(ir_pins[target_ind]))
+    {
       int ret = find_coin(target_ind + 1);
-      if(ret == -1) return target_ind;
-      else return ret;
+      if (ret == -1)
+        return target_ind;
+      else
+        return ret;
     }
   }
 
   return -1;
 }
 
-int minimize(int sum, int coin_ind, int buffer[]){
-  if(sum == filling_sum) return 1;
-  if(sum > filling_sum) return 0;
-  if(coin_ind == -1) return 0;
+int minimize(int sum, int coin_ind, int buffer[])
+{
+  if (sum == filling_sum)
+    return 1;
+  if (sum > filling_sum)
+    return 0;
+  if (coin_ind == -1)
+    return 0;
 
-  for(int i = bank_amount[ind[coin_ind]]; i >= 0; i--) {
+  for (int i = bank_amount[ind[coin_ind]]; i >= 0; i--)
+  {
     buffer[ind[coin_ind]] = i;
-    if(minimize(sum + i * coins[ind[coin_ind]], coin_ind - 1, buffer)) return 1;
+    if (minimize(sum + i * coins[ind[coin_ind]], coin_ind - 1, buffer))
+      return 1;
   }
 
   return 0;
 }
 
-int maximize(int sum, int coin_ind, int buffer[]){
-  if(sum == filling_sum) return 1;
-  if(sum > filling_sum) return 0;
-  if(coin_ind == 4) return 0;
+int maximize(int sum, int coin_ind, int buffer[])
+{
+  if (sum == filling_sum)
+    return 1;
+  if (sum > filling_sum)
+    return 0;
+  if (coin_ind == 4)
+    return 0;
 
-  for(int i = bank_amount[ind[coin_ind]]; i >= 0; i--) {
+  for (int i = bank_amount[ind[coin_ind]]; i >= 0; i--)
+  {
     buffer[ind[coin_ind]] = i;
-    if(maximize(sum + i * coins[ind[coin_ind]], coin_ind + 1, buffer)) return 1;
+    if (maximize(sum + i * coins[ind[coin_ind]], coin_ind + 1, buffer))
+      return 1;
   }
 
   return 0;
 }
 
-void calculate_coins(int buffer[]){
-  switch (mode) {
-    case 0:
-      maximize(0, 0, buffer);
-      return;
-    case 1:
-      minimize(0, 3, buffer);
-      return;
-    default:
-      return;
+void calculate_coins(int buffer[])
+{
+  switch (mode)
+  {
+  case 0:
+    maximize(0, 0, buffer);
+    return;
+  case 1:
+    minimize(0, 3, buffer);
+    return;
+  default:
+    return;
   }
 }
 
-void push_coin(int coin_ind){
+void push_coin(int coin_ind)
+{
   // Serial.println("Before");
   int initial = servos[coin_ind].read();
   // Serial.println(initial);
@@ -217,38 +250,43 @@ void push_coin(int coin_ind){
   delay(500);
 }
 
-void give_coins(){
+void give_coins()
+{
   // delay(5000);
   int push_coins[4] = {0};
   calculate_coins(push_coins);
 
   Serial.println("Bank Amount Before: ");
-  for(int i = 0; i < 4; i++) {
+  for (int i = 0; i < 4; i++)
+  {
     Serial.print(bank_amount[i]);
     Serial.print(" ");
   }
 
   Serial.println("\nGiving Coins: ");
-  for(int i = 0; i < 4; i++) {
+  for (int i = 0; i < 4; i++)
+  {
     Serial.print(push_coins[i]);
     Serial.print(" ");
 
-    for(int j = 0; j < push_coins[i]; j++) push_coin(i);
+    for (int j = 0; j < push_coins[i]; j++)
+      push_coin(i);
 
     bank_amount[i] -= push_coins[i];
   }
 
   Serial.println("\nBank Amount After: ");
-  for(int i = 0; i < 4; i++) {
+  for (int i = 0; i < 4; i++)
+  {
     Serial.print(bank_amount[i]);
     Serial.print(" ");
   }
-
 }
 
 void setup()
 {
-  for(int i = 0; i < 4; i++) pinMode(ir_pins[i], INPUT_PULLUP), servos[i].attach(motor_pins[i], 0, 5980);
+  for (int i = 0; i < 4; i++)
+    pinMode(ir_pins[i], INPUT_PULLUP), servos[i].attach(motor_pins[i], 0, 5980);
   pinMode(mod_pin, INPUT_PULLUP);
   pinMode(confirm_pin, INPUT_PULLUP);
   pinMode(buzzer_pin, OUTPUT);
@@ -259,15 +297,20 @@ void setup()
   print_screen();
 
   Serial.begin(9600);
+
+  int initial = servos[1].read();
+  servos[1].write(initial - 20);
 }
 
 int first_time = 1;
 
 void loop()
-{ 
-  if(first_time == 1) {
+{
+  if (first_time == 1)
+  {
     Serial.println("run");
-    for(int i = 0; i < 4; i++) {
+    for (int i = 0; i < 4; i++)
+    {
       Serial.print(servos[i].read()), Serial.print(" ");
       // servos[i].write(93);
     }
@@ -280,39 +323,48 @@ void loop()
   // if(found_coin != -1) Serial.println(found_coin);
   int mode_reading = digitalRead(mod_pin);
   int confirm_reading = digitalRead(confirm_pin);
-  
+
   int is_confirmed = 0;
 
-  if (mode_reading != last_mode_button_state) {
+  if (mode_reading != last_mode_button_state)
+  {
     last_mode_debounce_time = millis();
   }
 
-  if ((millis() - last_mode_debounce_time) > debounce_delay) {
-    if (mode_reading != mode_button_state) {
+  if ((millis() - last_mode_debounce_time) > debounce_delay)
+  {
+    if (mode_reading != mode_button_state)
+    {
       mode_button_state = mode_reading;
 
-      if (mode_button_state == LOW) {
+      if (mode_button_state == LOW)
+      {
         mode = (mode + 1) % 3;
         print_screen();
       }
     }
   }
 
-  if (confirm_reading != last_confirm_button_state) {
+  if (confirm_reading != last_confirm_button_state)
+  {
     last_confirm_debounce_time = millis();
   }
 
-  if ((millis() - last_confirm_debounce_time) > debounce_delay) {
-    if (confirm_reading != confirm_button_state) {
+  if ((millis() - last_confirm_debounce_time) > debounce_delay)
+  {
+    if (confirm_reading != confirm_button_state)
+    {
       confirm_button_state = confirm_reading;
 
-      if (confirm_button_state == LOW) {
+      if (confirm_button_state == LOW)
+      {
         is_confirmed = 1;
       }
     }
   }
 
-  if(found_coin != -1) {
+  if (found_coin != -1)
+  {
     // Serial.println("Coin Found: ");
     // Serial.println(coins[found_coin]);
     // Serial.println(found_coin);
@@ -327,13 +379,17 @@ void loop()
     print_screen();
   }
 
-  if(is_confirmed) {
-    if(status == 1) {
+  if (is_confirmed)
+  {
+    if (status == 1)
+    {
       status = 2;
       print_screen();
     }
-    else if(status == 2) {
-      if(mode == 0 || mode == 1) {
+    else if (status == 2)
+    {
+      if (mode == 0 || mode == 1)
+      {
         status = 3;
         print_screen();
         give_coins();
