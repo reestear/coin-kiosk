@@ -2,7 +2,7 @@
 #include <Servo.h> 
 #include <time.h> 
 
-// Coins
+// Coins sorted by size of their nominals:
 // 20 -> 10 -> 50 -> 100
 const int coins[4] = {20, 10, 50, 100};
 const int ind[4] = {1, 0, 2, 3};
@@ -10,6 +10,7 @@ unsigned long last_mode_debounce_time = 0, last_confirm_debounce_time = 0, debou
 int mode_button_state = HIGH, last_mode_button_state = HIGH;
 int confirm_button_state, last_confirm_button_state = 0;
 
+// Music notes for Passive Buzzer when system first loads and user rolls casino or exchanges money
 const int noteA = 440, noteB = 494, noteC = 523;
 const int melody[] = {
   noteA, noteB, noteC, noteA, noteB, noteC, noteB, noteA, noteB, noteC, noteB, noteA, noteC, noteC, noteA
@@ -23,23 +24,42 @@ const float noteDurations[] = {
 const int ir_pins[4] = {8, 9, 10, 11};
 const int motor_pins[4] = {47, 49, 51, 53};
 const int mod_pin = 3, confirm_pin = 2, buzzer_pin = 12;
-// const int x_pin = A0, y_pin = A1;
 
 // Configuring LCD Screen
 LiquidCrystal_I2C lcd = LiquidCrystal_I2C(0x27, 26, 2);
 Servo servos[4];
 
 // Global States
+
+// status: Describes the current status of the system
 // status: 0 - Idle, 1 - Filling Coins, 2 - Selecting Mode, 3 - Giving Coins, 4 - Successful, 5 - Casino Ready, 6 - Casino Playing, 7 - Casino Done
-// mode: 0 - Small nominal, 1 - Big nominal, 2 - Bank Fillin, 3 - Casino
+
+// mode: Describes the current mode user chose
+// mode: 0 - Small nominal, 1 - Big nominal, 2 - Bank Filling, 3 - Casino
+
+// casino_mode: Describes whether user is ready to play Casino
 // casino_mode: 0 - not ready, 1 - ready
+
+// filling_sum: User filling amount
 int filling_sum = 0, status = 0, mode = 0, casino_mode = 0;
+
+// bank_amount[]: coin counter, total_sum: total bank amount
 int bank_amount[4] = {0, 0, 0, 0}, total_sum = 0;
+
+// Good Luck Animation messages
 const char luck_messages[][17] = {"Good Luck!    ", "Good Luck!.   ", "Good Luck!..  ", "Good Luck!... "};
+const char loading_messages[][17] = {"Please Wait        ", "Please Wait.      ", "Please Wait..     ", "Please Wait...    "};
+
 char loading_message[] = "Please Wait   ", luck_message[] = "Good Luck!    ";
-const double win_chance = 0.5, MAX_RAND = RAND_MAX;
+
+const long win_chance = 50;
+
+// Previous Casino roll
 int prev_casino_set[3] = {7, 7, 7};
+
+// Current Casino roll
 int random_set[3] = {0};
+
 const int casino_roll_delay = 50;
 bool user_won = false;
 
@@ -52,15 +72,21 @@ bool user_won = false;
   Amount: xxx
   Press OK to continue
 
-  Selected Mode: Smaller(Bigger)
+  Selected Mode: Smaller/Bigger/Casino
   Press OK to continue
 
   Giving your coins
   Please wait......
 
 */
+
+/*
+	One function called every time to print on LCD Screen
+	Will be called manually when state is changing or Animation is being runned
+*/
 void print_screen(){
   switch (status) {
+  	// Idle
     case 0:
       lcd.setCursor(0, 0);
       lcd.print("C: ");
@@ -79,7 +105,7 @@ void print_screen(){
       }
 
       return;
-    
+    // Filling Coins
     case 1:
       lcd.setCursor(0, 0);
       lcd.print("Amount: ");
@@ -90,7 +116,7 @@ void print_screen(){
       lcd.print("OK to continue");
 
       return;
-    
+    // Selecting mode
     case 2:
       lcd.setCursor(0, 0);
       lcd.print("Mode: ");
@@ -100,7 +126,7 @@ void print_screen(){
       lcd.print("OK to continue");
 
       return;
-    
+    // Giving Coins
     case 3:
       lcd.setCursor(0, 0);
       lcd.print("Giving coins      ");
@@ -109,7 +135,7 @@ void print_screen(){
       lcd.print(loading_message);
 
       return;
-    
+    // Done with Giving Coins
     case 4:
       lcd.setCursor(0, 0);
       lcd.print("Now you are rich!   ");
@@ -118,7 +144,7 @@ void print_screen(){
       lcd.print(user_won ? "(Actually Yes)" : "(Actually Not)");
 
       return;
-    
+    // Casino Initial state asking user to ensure
     case 5:
       lcd.setCursor(0, 0);
       lcd.print("Roll: ");
@@ -128,7 +154,7 @@ void print_screen(){
       lcd.print("You Sure?: "), lcd.print(casino_mode ? "Yes   " : "No   ");
 
       return;
-
+	// Casino Rolling animation
     case 6:
 
       lcd.setCursor(0, 0);
@@ -139,7 +165,7 @@ void print_screen(){
       lcd.print(luck_message);
 
       return;
-    
+    // Done playing Casino
     case 7:
 
       lcd.setCursor(0, 0);
@@ -157,6 +183,10 @@ void print_screen(){
   }
 }
 
+/**
+  * @brief Function to play an audio
+  *	@param full boolean value representing whether to play audio full or only 'money-money-money' part
+*/
 void play_audio(int full){
   int till = (full == 1) ? 15 : 6;
   for (int i = 0; i < till; i++) {
@@ -170,6 +200,12 @@ void play_audio(int full){
   noTone(buzzer_pin);
 }
 
+/**
+ * @brief Find the coin in the machine
+ * 
+ * @param target_ind index of the coin
+ * @return int index of the coin
+ */
 int find_coin(int target_ind){
   if(target_ind == 4) return -1;
 
@@ -195,11 +231,21 @@ int find_coin(int target_ind){
   return -1;
 }
 
+/**
+ * @brief Generate random digit for Casino roll
+ * 
+ * @return int random digit
+ */
 int random_digit(){
-	return floor(((double) rand() / MAX_RAND) * 10);
+	return random(0, 10);
 }
 
+/**
+ * @brief Calculate random set of numbers representing Casino roll 
+ * 
+ */
 void calculate_random_set(){
+
 	bool _777 = true;
 	while(_777) {
 		for(int i = 0; i < 3; i++) {
@@ -212,7 +258,12 @@ void calculate_random_set(){
 	return;
 }
 
+/**
+ * @brief Play Casino function to simulate Casino roll
+ * 
+ */
 void play_casino() {
+  // If user is not ready to play Casino
   if(casino_mode == 0) {
     status = 3;
     print_screen();
@@ -223,9 +274,11 @@ void play_casino() {
     return;
   }
 
+  // Else if user is ready to play Casino
   // casino_mode == 1	
   status = 6;
-  user_won = ((double) rand() / MAX_RAND) < win_chance;
+  // Calculating user winning
+  user_won = random(0, 100) < win_chance;
 
   unsigned long start_time = millis();
   unsigned long prev_mes_time = start_time;
@@ -253,6 +306,14 @@ void play_casino() {
   for(int i = 0; i < 3; i++) prev_casino_set[i] = random_set[i];
 }
 
+/**
+ * @brief Algorithm to minimize the amount of coins
+ * 
+ * @param sum represents the current sum collected in a recursion
+ * @param coin_ind represents the current coin index looking at
+ * @param buffer represents the buffer to store the amount of coins
+ * @return int representing whether the sum is reached or not
+ */
 int minimize(int sum, int coin_ind, int buffer[]){
   if(sum == filling_sum) return 1;
   if(sum > filling_sum) return 0;
@@ -266,6 +327,14 @@ int minimize(int sum, int coin_ind, int buffer[]){
   return 0;
 }
 
+/**
+ * @brief Algorithm to maximize the amount of coins
+ * 
+ * @param sum represents the current sum collected in a recursion
+ * @param coin_ind represents the current coin index looking at
+ * @param buffer represents the buffer to store the amount of coins
+ * @return int repsenting whether the sum is reached or not
+ */
 int maximize(int sum, int coin_ind, int buffer[]){
   if(sum == filling_sum) return 1;
   if(sum > filling_sum) return 0;
@@ -279,6 +348,11 @@ int maximize(int sum, int coin_ind, int buffer[]){
   return 0;
 }
 
+/**
+ * @brief Calculates coins to give to the user depending on the mode selected: minimize or maximize coins
+ * 
+ * @param buffer repsenting the buffer to store the amount of coins
+ */
 void calculate_coins(int buffer[]){
   switch (mode) {
     case 0:
@@ -294,6 +368,11 @@ void calculate_coins(int buffer[]){
   }
 }
 
+/**
+ * @brief Function to push the coin out of the machine using servo motor
+ * 
+ * @param coin_ind repserenting the index of the coin to push out of the machine
+ */
 void push_coin(int coin_ind){
   // Serial.println("Before");
   int initial = servos[coin_ind].read();
@@ -302,23 +381,27 @@ void push_coin(int coin_ind){
   // Serial.println("After");
   // Serial.println(servos[coin_ind].read());
 
-  strcpy(loading_message, "Please Wait   ");
+  strcpy(loading_message, loading_messages[0]);
   print_screen();
   delay(500);
-  strcpy(loading_message, "Please Wait.  ");
+  strcpy(loading_message, loading_messages[1]);
   print_screen();
   delay(500);
 
   servos[coin_ind].write(initial);
 
-  strcpy(loading_message, "Please Wait.. ");
+  strcpy(loading_message, loading_messages[2]);
   print_screen();
   delay(500);
-  strcpy(loading_message, "Please Wait...");
+  strcpy(loading_message, loading_messages[3]);
   print_screen();
   delay(500);
 }
 
+/**
+ * @brief main function to give coins to the user
+ * 
+ */
 void give_coins(){
   // delay(5000);
   int push_coins[4] = {0};
@@ -349,17 +432,20 @@ void give_coins(){
 
 }
 
+/**
+ * @brief reset the bank to the initial state
+ * 
+ */
 void reset_bank(){
   status = 0;
   filling_sum = 0;
   print_screen();
 }
 
-void set_random_seed(void){
-	srand(time(NULL));
-	rand();
-}
-
+/**
+ * @brief setup function to initialize the pins and LCD Screen and Servo Motors
+ * 
+ */
 void setup()
 { 
   for(int i = 0; i < 4; i++) pinMode(ir_pins[i], INPUT_PULLUP), servos[i].attach(motor_pins[i], 0, 5980);
@@ -374,20 +460,13 @@ void setup()
 
   servos[1].write(servos[1].read() - 20);
 
-  set_random_seed();
+  play_audio(1);
 
   Serial.begin(9600);
 }
 
-int first_time = 1;
-
 void loop()
 { 
-  if(first_time == 1) {
-    play_audio(1);
-
-    first_time = 0;
-  }
   int found_coin = find_coin(0);
   // if(found_coin != -1) Serial.println(found_coin);
   int mode_reading = digitalRead(mod_pin);
