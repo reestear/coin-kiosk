@@ -35,7 +35,7 @@ Servo servos[4];
 // status: 0 - Idle, 1 - Filling Coins, 2 - Selecting Mode, 3 - Giving Coins, 4 - Successful, 5 - Casino Ready, 6 - Casino Playing, 7 - Casino Done
 
 // mode: Describes the current mode user chose
-// mode: 0 - Small nominal, 1 - Big nominal, 2 - Bank Filling, 3 - Casino
+// mode: 0 - Small nominal, 1 - Big nominal, 2 - Bank Filling, 3 - Casino, 4 - Empty
 
 // casino_mode: Describes whether user is ready to play Casino
 // casino_mode: 0 - not ready, 1 - ready
@@ -120,7 +120,7 @@ void print_screen(){
     case 2:
       lcd.setCursor(0, 0);
       lcd.print("Mode: ");
-      lcd.print(mode == 0 ? "Smaller      " : mode == 1 ? "Bigger     " : mode == 2 ? "Filling     " : "Casino   ");
+      lcd.print(mode == 0 ? "Smaller      " : mode == 1 ? "Bigger     " : mode == 2 ? "Filling     " : mode == 3 ?  "Casino   " : "Empty       ");
 
       lcd.setCursor(0, 1);
       lcd.print("OK to continue");
@@ -362,7 +362,6 @@ void calculate_coins(int buffer[]){
       minimize(0, 3, buffer);
       return;
     default:
-      Serial.println("SSSSHEHSD");
       minimize(0, 3, buffer);
       return;
   }
@@ -381,19 +380,19 @@ void push_coin(int coin_ind){
   // Serial.println("After");
   // Serial.println(servos[coin_ind].read());
 
-  strcpy(loading_message, loading_messages[0]);
+  strcpy(loading_message, "Please Wait   ");
   print_screen();
   delay(500);
-  strcpy(loading_message, loading_messages[1]);
+  strcpy(loading_message, "Please Wait.  ");
   print_screen();
   delay(500);
 
   servos[coin_ind].write(initial);
 
-  strcpy(loading_message, loading_messages[2]);
+  strcpy(loading_message, "Please Wait.. ");
   print_screen();
   delay(500);
-  strcpy(loading_message, loading_messages[3]);
+  strcpy(loading_message, "Please Wait...");
   print_screen();
   delay(500);
 }
@@ -407,16 +406,16 @@ void give_coins(){
   int push_coins[4] = {0};
   calculate_coins(push_coins);
 
-  Serial.println("Bank Amount Before: ");
-  for(int i = 0; i < 4; i++) {
-    Serial.print(bank_amount[i]);
-    Serial.print(" ");
-  }
+  // Serial.println("Bank Amount Before: ");
+  // for(int i = 0; i < 4; i++) {
+  //   Serial.print(bank_amount[i]);
+  //   Serial.print(" ");
+  // }
 
-  Serial.println("\nGiving Coins: ");
+  // Serial.println("\nGiving Coins: ");
   for(int i = 0; i < 4; i++) {
-    Serial.print(push_coins[i]);
-    Serial.print(" ");
+    // Serial.print(push_coins[i]);
+    // Serial.print(" ");
 
     for(int j = 0; j < push_coins[i]; j++) push_coin(i);
 
@@ -424,12 +423,22 @@ void give_coins(){
     total_sum -= (push_coins[i] * coins[i]);
   }
 
-  Serial.println("\nBank Amount After: ");
-  for(int i = 0; i < 4; i++) {
-    Serial.print(bank_amount[i]);
-    Serial.print(" ");
-  }
+  // Serial.println("\nBank Amount After: ");
+  // for(int i = 0; i < 4; i++) {
+  //   Serial.print(bank_amount[i]);
+  //   Serial.print(" ");
+  // }
+}
 
+void empty_bank(void){
+	for(int i = 0; i < 4; i++) {
+		for(int j = 0; j < bank_amount[i]; j++) {
+			push_coin(i);
+		}
+		bank_amount[i] = 0;
+	}
+
+	total_sum = 0;
 }
 
 /**
@@ -486,7 +495,7 @@ void loop()
         if(status == 5) {
           casino_mode = !casino_mode;
         } else {
-          mode = (mode + 1) % 4;
+          mode = (mode + 1) % 5;
         }
 
         print_screen();
@@ -509,8 +518,8 @@ void loop()
   }
 
   if(found_coin != -1) {
-    Serial.println("Coin Found: ");
-    Serial.println(coins[found_coin]);
+    //Serial.println("Coin Found: ");
+    //Serial.println(coins[found_coin]);
     // Serial.println(found_coin);
 
     status = 1;
@@ -518,10 +527,10 @@ void loop()
     bank_amount[found_coin]++;
     total_sum += coins[found_coin];
 
-    for(int i = 0; i < 4; i++) Serial.print(coins[i]), Serial.print(" ");
-    Serial.println();
-    for(int i = 0; i < 4; i++) Serial.print(bank_amount[i]), Serial.print(" ");
-    Serial.println();
+    //for(int i = 0; i < 4; i++) Serial.print(coins[i]), Serial.print(" ");
+    //Serial.println();
+    //for(int i = 0; i < 4; i++) Serial.print(bank_amount[i]), Serial.print(" ");
+    //Serial.println();
 
     print_screen();
   }
@@ -555,6 +564,15 @@ void loop()
         status = 5;
         print_screen();
       }
+
+	  // Emptying Bank
+	  if(mode == 4) {
+	  	status = 3;
+		print_screen();
+	  	empty_bank();
+
+		reset_bank();
+	  }
     }
     // Getting ready to play Casino
     else if(status == 5) {
@@ -562,7 +580,7 @@ void loop()
     }
     // Done playing Casino
     else if(status == 7) {
-      Serial.println("Pressed");
+      //Serial.println("Pressed");
       if(user_won == 1) {
         filling_sum = min(filling_sum * 2, total_sum);
         status = 3;
